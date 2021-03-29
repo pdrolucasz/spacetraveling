@@ -11,7 +11,7 @@ import { FiCalendar, FiUser } from 'react-icons/fi';
 import { getPrismicClient } from '../services/prismic';
 import Header from '../components/Header';
 
-// import commonStyles from '../styles/common.module.scss';
+import commonStyles from '../styles/common.module.scss';
 import styles from './home.module.scss';
 
 interface Post {
@@ -35,7 +35,20 @@ interface HomeProps {
 
 export default function Home({ postsPagination }: HomeProps): JSX.Element {
   const [nextPage, setNextPage] = useState(postsPagination.next_page);
-  const [results, setResults] = useState(postsPagination.results);
+  const [results, setResults] = useState<Post[]>(
+    postsPagination.results.map(result => {
+      return {
+        ...result,
+        first_publication_date: format(
+          new Date(result.first_publication_date),
+          'dd MMM yyyy',
+          {
+            locale: ptBR,
+          }
+        ),
+      };
+    })
+  );
 
   function handleNextPage(): void {
     fetch(nextPage).then(response => {
@@ -70,7 +83,7 @@ export default function Home({ postsPagination }: HomeProps): JSX.Element {
       <Head>
         <title>Início</title>
       </Head>
-      <main className={styles.container}>
+      <main className={commonStyles.container}>
         <Header />
 
         <div className={styles.posts}>
@@ -119,13 +132,7 @@ export const getStaticProps: GetStaticProps = async () => {
   const posts = postsResponse.results.map(post => {
     return {
       uid: post.uid,
-      first_publication_date: format(
-        new Date(post.first_publication_date),
-        'dd MMM yyyy',
-        {
-          locale: ptBR,
-        }
-      ),
+      first_publication_date: post.first_publication_date,
       data: {
         title: post.data.title,
         subtitle: post.data.subtitle,
