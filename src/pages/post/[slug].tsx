@@ -3,12 +3,14 @@ import { format } from 'date-fns';
 import ptBR from 'date-fns/locale/pt-BR';
 import { FiCalendar, FiUser, FiClock } from 'react-icons/fi';
 
+import Prismic from '@prismicio/client';
 import { RichText } from 'prismic-dom';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import { getPrismicClient } from '../../services/prismic';
 import Header from '../../components/Header';
 
-// import commonStyles from '../../styles/common.module.scss';
+import commonStyles from '../../styles/common.module.scss';
 import styles from './post.module.scss';
 
 interface Post {
@@ -34,10 +36,16 @@ interface PostProps {
 }
 
 export default function Post({ post }: PostProps): JSX.Element {
+  const router = useRouter();
+
   const readTime = post.data.content.reduce((sumTotal, content) => {
     const textTime = RichText.asText(content.body).split(' ').length;
     return Math.ceil(sumTotal + textTime / 200);
   }, 0);
+
+  if (router.isFallback) {
+    return <p>Carregando...</p>;
+  }
 
   return (
     <>
@@ -45,7 +53,7 @@ export default function Post({ post }: PostProps): JSX.Element {
         <title>{post.data.title} | Spacetraveling</title>
       </Head>
 
-      <main className={styles.container}>
+      <main className={commonStyles.container}>
         <Header />
 
         <img
@@ -58,7 +66,9 @@ export default function Post({ post }: PostProps): JSX.Element {
           <div>
             <time>
               <FiCalendar size={20} />
-              {post.first_publication_date}
+              {format(new Date(post.first_publication_date), 'dd MMM yyyy', {
+                locale: ptBR,
+              })}
             </time>
             <cite>
               <FiUser size={20} />
@@ -73,16 +83,14 @@ export default function Post({ post }: PostProps): JSX.Element {
           {post.data.content.map(content => (
             <article key={content.heading}>
               <strong>{content?.heading}</strong>
-              {content.body.map(body => (
-                <p>{body.text}</p>
-              ))}
-              {content.body.map(body => {
+              {content.body.map((body, index) => {
+                const key = index;
                 return body.type === 'list-item' ? (
-                  <ul>
+                  <ul key={key}>
                     <li>{body.text}</li>
                   </ul>
                 ) : (
-                  <p>{body.text}</p>
+                  <p key={key}>{body.text}</p>
                 );
               })}
             </article>
@@ -94,14 +102,23 @@ export default function Post({ post }: PostProps): JSX.Element {
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  // const prismic = getPrismicClient();
-  // const posts = await prismic.query(TODO);
+  const prismic = getPrismicClient();
+  const postsResponse = await prismic.query(
+    [Prismic.predicates.at('document.type', 'post')],
+    {
+      fetch: ['post.title', 'post.subtitle', 'post.author'],
+    }
+  );
 
-  // TODO
+  const slugs = postsResponse.results.map(slug => slug.uid);
 
   return {
-    paths: [],
-    fallback: 'blocking',
+    paths: slugs.map(slug => {
+      return {
+        params: { slug },
+      };
+    }),
+    fallback: true,
   };
 };
 
@@ -110,18 +127,13 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
   const prismic = getPrismicClient();
   const response = await prismic.getByUID('post', String(slug), {});
-  console.log(JSON.stringify(response, null, 2));
 
   const post = {
-    first_publication_date: format(
-      new Date(response.first_publication_date),
-      'dd MMM yyyy',
-      {
-        locale: ptBR,
-      }
-    ),
+    uid: response.uid,
+    first_publication_date: response.first_publication_date,
     data: {
       title: response.data.title,
+      subtitle: response.data.subtitle,
       banner: {
         url: response.data.banner.url,
       },
@@ -133,6 +145,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
             return {
               text: body.text,
               type: body.type,
+              spans: [...body.spans],
             };
           }),
         };

@@ -1,17 +1,12 @@
-.container {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 0 2rem 2rem 0;
-
-  img.banner {
-    margin: 2rem auto 0;
-    width: 100%;
-  }
+img.banner {
+  margin: 2rem auto 0;
+  width: 100%;
 }
 
 .content {
   margin: 5rem auto 0;
   max-width: 720px;
+  padding-bottom: 2rem;
 
   strong {
     font-size: 3rem;
